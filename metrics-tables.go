@@ -82,6 +82,38 @@ type TableHealth struct {
 	// PeerRPCs is compaction's peer-RPC count, summed across nodes even
 	// though compaction's TableMaintenanceJob is leader-owned.
 	PeerRPCs uint64 `json:"peer_rpcs,omitempty"`
+
+	// MaintenanceIO maps a maintenance job type to the table file I/O it
+	// issued, summed across nodes: distributed compaction reads and writes on
+	// every node, not only on the leader. It is an AIStor extension.
+	MaintenanceIO map[string]TableMaintenanceIO `json:"maintenance_io,omitempty"`
+}
+
+// TableMaintenanceIO is the table file I/O one maintenance job type issued,
+// cumulative since process start. Byte counts are plaintext, before
+// compression and encryption. It is an AIStor extension.
+type TableMaintenanceIO struct {
+	BytesRead    uint64 `json:"bytes_read,omitempty"`
+	BytesWritten uint64 `json:"bytes_written,omitempty"`
+
+	// Ops maps an object operation ("get", "head", "put", "list", "delete")
+	// to its count.
+	Ops map[string]uint64 `json:"ops,omitempty"`
+
+	// ThrottleSecs is the time the I/O paused to yield to other cluster
+	// traffic.
+	ThrottleSecs float64 `json:"throttle_secs,omitempty"`
+}
+
+// Add other into m.
+func (m *TableMaintenanceIO) Add(other *TableMaintenanceIO) {
+	if other == nil {
+		return
+	}
+	m.BytesRead += other.BytesRead
+	m.BytesWritten += other.BytesWritten
+	addMap(&m.Ops, other.Ops)
+	m.ThrottleSecs += other.ThrottleSecs
 }
 
 // Add other into h.
@@ -95,6 +127,7 @@ func (h *TableHealth) Add(other *TableHealth) {
 	addMap(&h.Rollbacks, other.Rollbacks)
 	addMap(&h.VendedCreds, other.VendedCreds)
 	h.PeerRPCs += other.PeerRPCs
+	mergeMap(&h.MaintenanceIO, other.MaintenanceIO)
 }
 
 // TableMaintenanceJob is one background table-maintenance job.

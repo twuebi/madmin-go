@@ -113,6 +113,37 @@ func TestTableHealthMergeSums(t *testing.T) {
 	}
 }
 
+// MaintenanceIO is counted on every node that does the I/O, so it sums per job
+// type like the rest of Health.
+func TestTableHealthMergeSumsMaintenanceIO(t *testing.T) {
+	a := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceIO: map[string]TableMaintenanceIO{
+		"compaction": {BytesRead: 10, BytesWritten: 4, Ops: map[string]uint64{"get": 3, "put": 1}, ThrottleSecs: 1.5},
+	}}}
+	b := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceIO: map[string]TableMaintenanceIO{
+		"compaction":                {BytesRead: 5, BytesWritten: 6, Ops: map[string]uint64{"get": 2, "list": 1}, ThrottleSecs: 0.5},
+		"unreferenced_file_removal": {BytesRead: 1, Ops: map[string]uint64{"delete": 2}},
+	}}}
+
+	got := mergeTables(a, b).Health
+	if got == nil {
+		t.Fatal("Health = nil")
+	}
+	c := got.MaintenanceIO["compaction"]
+	if c.BytesRead != 15 || c.BytesWritten != 10 || c.ThrottleSecs != 2 {
+		t.Errorf("compaction = %+v, want read=15 written=10 throttle=2", c)
+	}
+	if !maps.Equal(c.Ops, map[string]uint64{"get": 5, "put": 1, "list": 1}) {
+		t.Errorf("compaction ops = %v", c.Ops)
+	}
+	u := got.MaintenanceIO["unreferenced_file_removal"]
+	if u.BytesRead != 1 || !maps.Equal(u.Ops, map[string]uint64{"delete": 2}) {
+		t.Errorf("unreferenced_file_removal = %+v", u)
+	}
+	if a.Health.MaintenanceIO["compaction"].BytesRead != 10 {
+		t.Error("Merge must not mutate its inputs")
+	}
+}
+
 // Maintenance jobs are leader-owned. A demoted leader keeps higher lifetime
 // totals in memory, so selecting on "most cycles" would pin the reported state
 // to a node that stopped running the job.

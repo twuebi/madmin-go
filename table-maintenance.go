@@ -238,6 +238,15 @@ type TableMaintenanceJobTypeStatus struct {
 	// a table still waiting for compaction. It is an AIStor extension to the
 	// S3 Tables maintenance job status.
 	CompactionDueTimestamp *time.Time `json:"compactionDueTimestamp,omitempty"`
+
+	// BytesRead and BytesWritten are the table file bytes the last run read
+	// and wrote, and TotalBytesRead and TotalBytesWritten accumulate across
+	// runs. Byte counts are plaintext, before compression and encryption.
+	// They are an AIStor extension to the S3 Tables maintenance job status.
+	BytesRead         *int64 `json:"bytesRead,omitempty"`
+	BytesWritten      *int64 `json:"bytesWritten,omitempty"`
+	TotalBytesRead    *int64 `json:"totalBytesRead,omitempty"`
+	TotalBytesWritten *int64 `json:"totalBytesWritten,omitempty"`
 }
 
 // TableCompactionBacklog is a table's compaction backlog as measured by the last
