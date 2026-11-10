@@ -82,6 +82,14 @@ type TableHealth struct {
 	// PeerRPCs is compaction's peer-RPC count, summed across nodes even
 	// though compaction's TableMaintenanceJob is leader-owned.
 	PeerRPCs uint64 `json:"peer_rpcs,omitempty"`
+
+	// MaintenanceRuns maps a maintenance job type to the table runs the
+	// reporting nodes executed, and CompactionGroupsInFlight is the number of
+	// compaction groups they are rewriting now. Each node reports the work it
+	// runs itself, so both sum across nodes even though TableMaintenanceJob is
+	// leader-owned. Both are AIStor extensions.
+	MaintenanceRuns          map[string]TableMaintenanceRuns `json:"maintenance_runs,omitempty"`
+	CompactionGroupsInFlight uint64                          `json:"compaction_groups_inflight,omitempty"`
 }
 
 // Add other into h.
@@ -95,6 +103,29 @@ func (h *TableHealth) Add(other *TableHealth) {
 	addMap(&h.Rollbacks, other.Rollbacks)
 	addMap(&h.VendedCreds, other.VendedCreds)
 	h.PeerRPCs += other.PeerRPCs
+	mergeMap(&h.MaintenanceRuns, other.MaintenanceRuns)
+	h.CompactionGroupsInFlight += other.CompactionGroupsInFlight
+}
+
+// TableMaintenanceRuns summarizes one maintenance job type's table runs on
+// the reporting nodes. It is an AIStor extension.
+type TableMaintenanceRuns struct {
+	// InFlight is the number of table runs executing now.
+	InFlight uint64 `json:"inflight,omitempty"`
+
+	// Count and TotalSecs cover the scheduled runs finished since process
+	// start, and MaxSecs is the longest of them.
+	Count     uint64  `json:"count,omitempty"`
+	TotalSecs float64 `json:"total_secs,omitempty"`
+	MaxSecs   float64 `json:"max_secs,omitempty"`
+}
+
+// Add other into r.
+func (r *TableMaintenanceRuns) Add(other *TableMaintenanceRuns) {
+	r.InFlight += other.InFlight
+	r.Count += other.Count
+	r.TotalSecs += other.TotalSecs
+	r.MaxSecs = max(r.MaxSecs, other.MaxSecs)
 }
 
 // TableMaintenanceJob is one background table-maintenance job.

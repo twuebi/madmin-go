@@ -113,6 +113,42 @@ func TestTableHealthMergeSums(t *testing.T) {
 	}
 }
 
+// Every node runs its own share of maintenance work, so in-flight counts and
+// run totals sum while the longest run is the longest on any node.
+func TestTableHealthMergeSumsMaintenanceRuns(t *testing.T) {
+	a := &TableAPIMetrics{Health: &TableHealth{
+		N: 1, CompactionGroupsInFlight: 3,
+		MaintenanceRuns: map[string]TableMaintenanceRuns{
+			"compaction":          {InFlight: 2, Count: 4, TotalSecs: 100, MaxSecs: 60},
+			"snapshot_expiration": {Count: 1, TotalSecs: 2, MaxSecs: 2},
+		},
+	}}
+	b := &TableAPIMetrics{Health: &TableHealth{
+		N: 1, CompactionGroupsInFlight: 5,
+		MaintenanceRuns: map[string]TableMaintenanceRuns{
+			"compaction": {InFlight: 1, Count: 2, TotalSecs: 300, MaxSecs: 250},
+		},
+	}}
+
+	got := mergeTables(a, b).Health
+	if got == nil {
+		t.Fatal("Health = nil")
+	}
+	if got.CompactionGroupsInFlight != 8 {
+		t.Errorf("CompactionGroupsInFlight = %d, want 8", got.CompactionGroupsInFlight)
+	}
+	want := map[string]TableMaintenanceRuns{
+		"compaction":          {InFlight: 3, Count: 6, TotalSecs: 400, MaxSecs: 250},
+		"snapshot_expiration": {Count: 1, TotalSecs: 2, MaxSecs: 2},
+	}
+	if !maps.Equal(got.MaintenanceRuns, want) {
+		t.Errorf("MaintenanceRuns = %+v, want %+v", got.MaintenanceRuns, want)
+	}
+	if a.Health.MaintenanceRuns["compaction"].Count != 4 {
+		t.Error("merging must not modify an input report")
+	}
+}
+
 // Maintenance jobs are leader-owned. A demoted leader keeps higher lifetime
 // totals in memory, so selecting on "most cycles" would pin the reported state
 // to a node that stopped running the job.
