@@ -82,6 +82,36 @@ type TableHealth struct {
 	// PeerRPCs is compaction's peer-RPC count, summed across nodes even
 	// though compaction's TableMaintenanceJob is leader-owned.
 	PeerRPCs uint64 `json:"peer_rpcs,omitempty"`
+
+	// MaintenanceMemory maps a maintenance type ("compaction",
+	// "record_expiration") to the memory its work holds on each node. It is an
+	// AIStor extension.
+	MaintenanceMemory map[string]TableMaintenanceMemory `json:"maintenance_memory,omitempty"`
+}
+
+// TableMaintenanceMemory is the memory one table maintenance type holds. Each
+// node reports one sample per gauge, so across nodes Sum is the cluster total
+// and Max the most loaded node. It is an AIStor extension.
+type TableMaintenanceMemory struct {
+	// ArrowBytes is the Arrow buffer memory the running work holds now.
+	ArrowBytes GaugeStats `json:"arrow_bytes"`
+	// InputBytes is the size of the data and delete files the running work
+	// reads. Only compaction reports it.
+	InputBytes GaugeStats `json:"input_bytes"`
+	// PeakArrowBytes is the largest Arrow buffer peak of a single unit of work,
+	// a compaction group or a record expiration run, since a node started.
+	// Peaks of different nodes do not add up, so Add keeps the largest.
+	PeakArrowBytes uint64 `json:"peak_arrow_bytes,omitempty"`
+}
+
+// Add other into m.
+func (m *TableMaintenanceMemory) Add(other *TableMaintenanceMemory) {
+	if other == nil {
+		return
+	}
+	m.ArrowBytes.Add(&other.ArrowBytes)
+	m.InputBytes.Add(&other.InputBytes)
+	m.PeakArrowBytes = max(m.PeakArrowBytes, other.PeakArrowBytes)
 }
 
 // Add other into h.
@@ -95,6 +125,7 @@ func (h *TableHealth) Add(other *TableHealth) {
 	addMap(&h.Rollbacks, other.Rollbacks)
 	addMap(&h.VendedCreds, other.VendedCreds)
 	h.PeerRPCs += other.PeerRPCs
+	mergeMap(&h.MaintenanceMemory, other.MaintenanceMemory)
 }
 
 // TableMaintenanceJob is one background table-maintenance job.

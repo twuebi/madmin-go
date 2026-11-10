@@ -113,6 +113,36 @@ func TestTableHealthMergeSums(t *testing.T) {
 	}
 }
 
+// Current memory sums with the most loaded node kept, while peaks of different
+// nodes never add up.
+func TestTableHealthMergeMaintenanceMemory(t *testing.T) {
+	node := func(arrow, input float64, peak uint64) map[string]TableMaintenanceMemory {
+		return map[string]TableMaintenanceMemory{"compaction": {
+			ArrowBytes:     GaugeStats{N: 1, Sum: arrow, Min: arrow, Max: arrow},
+			InputBytes:     GaugeStats{N: 1, Sum: input, Min: input, Max: input},
+			PeakArrowBytes: peak,
+		}}
+	}
+	a := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: node(100, 1000, 700)}}
+	b := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: node(300, 0, 500)}}
+	c := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: map[string]TableMaintenanceMemory{
+		"record_expiration": {ArrowBytes: GaugeStats{N: 1, Sum: 8, Min: 8, Max: 8}, PeakArrowBytes: 9},
+	}}}
+
+	got := mergeTables(mergeTables(a, b), c).Health.MaintenanceMemory
+	want := map[string]TableMaintenanceMemory{
+		"compaction": {
+			ArrowBytes:     GaugeStats{N: 2, Sum: 400, Min: 100, Max: 300},
+			InputBytes:     GaugeStats{N: 2, Sum: 1000, Min: 0, Max: 1000},
+			PeakArrowBytes: 700,
+		},
+		"record_expiration": {ArrowBytes: GaugeStats{N: 1, Sum: 8, Min: 8, Max: 8}, PeakArrowBytes: 9},
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("MaintenanceMemory = %+v, want %+v", got, want)
+	}
+}
+
 // Maintenance jobs are leader-owned. A demoted leader keeps higher lifetime
 // totals in memory, so selecting on "most cycles" would pin the reported state
 // to a node that stopped running the job.

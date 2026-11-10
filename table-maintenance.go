@@ -238,6 +238,23 @@ type TableMaintenanceJobTypeStatus struct {
 	// a table still waiting for compaction. It is an AIStor extension to the
 	// S3 Tables maintenance job status.
 	CompactionDueTimestamp *time.Time `json:"compactionDueTimestamp,omitempty"`
+
+	// CompactionMemory is what the largest compaction group of the table's
+	// last run that rewrote files held. It is an AIStor extension to the S3
+	// Tables maintenance job status.
+	CompactionMemory *TableCompactionMemory `json:"compactionMemory,omitempty"`
+}
+
+// TableCompactionMemory is the memory the compaction groups of one run held,
+// each measured on the node that rewrote it.
+type TableCompactionMemory struct {
+	MeasuredTimestamp time.Time `json:"measuredTimestamp"`
+
+	// PeakGroupArrowBytes is the largest Arrow buffer peak of any one group.
+	PeakGroupArrowBytes int64 `json:"peakGroupArrowBytes,omitempty"`
+	// PeakGroupInputBytes is the largest size of the data and delete files
+	// any one group read.
+	PeakGroupInputBytes int64 `json:"peakGroupInputBytes,omitempty"`
 }
 
 // TableCompactionBacklog is a table's compaction backlog as measured by the last
