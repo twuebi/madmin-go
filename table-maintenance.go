@@ -239,9 +239,9 @@ type TableMaintenanceJobTypeStatus struct {
 	// S3 Tables maintenance job status.
 	CompactionDueTimestamp *time.Time `json:"compactionDueTimestamp,omitempty"`
 
-	// LastRunDurationSeconds is how long the table's latest run of this type
-	// took, from its start to its status being recorded. It is an AIStor
-	// extension to the S3 Tables maintenance job status.
+	// LastRunDurationSeconds is how long the run at LastRunTimestamp took,
+	// from its start to its status being recorded. It is an AIStor extension
+	// to the S3 Tables maintenance job status.
 	LastRunDurationSeconds *float64 `json:"lastRunDurationSeconds,omitempty"`
 }
 
