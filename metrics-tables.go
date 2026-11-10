@@ -102,6 +102,9 @@ type TableMaintenanceMemory struct {
 	// a compaction group or a record expiration run, since a node started.
 	// Peaks of different nodes do not add up, so Add keeps the largest.
 	PeakArrowBytes uint64 `json:"peak_arrow_bytes,omitempty"`
+	// NodePeakArrowBytes is the most Arrow buffer memory all running work on
+	// one node held at once since the node started. Add keeps the largest.
+	NodePeakArrowBytes uint64 `json:"node_peak_arrow_bytes,omitempty"`
 }
 
 // Add other into m.
@@ -112,6 +115,7 @@ func (m *TableMaintenanceMemory) Add(other *TableMaintenanceMemory) {
 	m.ArrowBytes.Add(&other.ArrowBytes)
 	m.InputBytes.Add(&other.InputBytes)
 	m.PeakArrowBytes = max(m.PeakArrowBytes, other.PeakArrowBytes)
+	m.NodePeakArrowBytes = max(m.NodePeakArrowBytes, other.NodePeakArrowBytes)
 }
 
 // Add other into h.

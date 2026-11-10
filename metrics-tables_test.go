@@ -116,15 +116,16 @@ func TestTableHealthMergeSums(t *testing.T) {
 // Current memory sums with the most loaded node kept, while peaks of different
 // nodes never add up.
 func TestTableHealthMergeMaintenanceMemory(t *testing.T) {
-	node := func(arrow, input float64, peak uint64) map[string]TableMaintenanceMemory {
+	node := func(arrow, input float64, peak, nodePeak uint64) map[string]TableMaintenanceMemory {
 		return map[string]TableMaintenanceMemory{"compaction": {
-			ArrowBytes:     GaugeStats{N: 1, Sum: arrow, Min: arrow, Max: arrow},
-			InputBytes:     GaugeStats{N: 1, Sum: input, Min: input, Max: input},
-			PeakArrowBytes: peak,
+			ArrowBytes:         GaugeStats{N: 1, Sum: arrow, Min: arrow, Max: arrow},
+			InputBytes:         GaugeStats{N: 1, Sum: input, Min: input, Max: input},
+			PeakArrowBytes:     peak,
+			NodePeakArrowBytes: nodePeak,
 		}}
 	}
-	a := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: node(100, 1000, 700)}}
-	b := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: node(300, 0, 500)}}
+	a := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: node(100, 1000, 700, 900)}}
+	b := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: node(300, 0, 500, 1200)}}
 	c := &TableAPIMetrics{Health: &TableHealth{N: 1, MaintenanceMemory: map[string]TableMaintenanceMemory{
 		"record_expiration": {ArrowBytes: GaugeStats{N: 1, Sum: 8, Min: 8, Max: 8}, PeakArrowBytes: 9},
 	}}}
@@ -132,9 +133,10 @@ func TestTableHealthMergeMaintenanceMemory(t *testing.T) {
 	got := mergeTables(mergeTables(a, b), c).Health.MaintenanceMemory
 	want := map[string]TableMaintenanceMemory{
 		"compaction": {
-			ArrowBytes:     GaugeStats{N: 2, Sum: 400, Min: 100, Max: 300},
-			InputBytes:     GaugeStats{N: 2, Sum: 1000, Min: 0, Max: 1000},
-			PeakArrowBytes: 700,
+			ArrowBytes:         GaugeStats{N: 2, Sum: 400, Min: 100, Max: 300},
+			InputBytes:         GaugeStats{N: 2, Sum: 1000, Min: 0, Max: 1000},
+			PeakArrowBytes:     700,
+			NodePeakArrowBytes: 1200,
 		},
 		"record_expiration": {ArrowBytes: GaugeStats{N: 1, Sum: 8, Min: 8, Max: 8}, PeakArrowBytes: 9},
 	}
